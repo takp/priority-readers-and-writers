@@ -1,40 +1,22 @@
-/*
-Write a multi-threaded C program that gives readers priority over writers
-concerning a shared (global) variable.
-Essentially, if any readers are waiting, then they have priority over writer threads --
-writers can only write when there are no readers. This program should adhere to the
-following constraints:
-
-- Multiple readers/writers must be supported (5 of each is fine)
-- Readers must read the shared variable X number of times
-- Writers must write the shared variable X number of times
-- Readers must print:
-  - The value read
-  - The number of readers present when value is read
-- Writers must print:
-  - The written value
-  - The number of readers present were when value is written (should be 0)
-- Before a reader/writer attempts to access the shared variable it should wait some random amount of time
-  - Note: This will help ensure that reads and writes do not occur all at once
-- Use pthreads, mutexes, and condition variables to synchronize access to the shared variable
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define N_READERS 5 /* size of shared buffer */
 #define N_WRITERS 5 /* size of shared buffer */
+#define SLEEP_TIME 1000000 /* size of shared buffer */
 
 unsigned int shared_x = 0; /* shared variable x */
-int waiting_readers = 0;
+int g_waiting_readers = 0;
+int g_readers = 0;
 
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_reader = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_writer = PTHREAD_COND_INITIALIZER;
 
-void *writer (void *param);
-void *reader (void *param);
+void *writer_process (void *param);
+void *reader_process (void *param);
 
 int main(int argc, char *argv[]) {
 
@@ -73,11 +55,70 @@ int main(int argc, char *argv[]) {
 }
 
 void *reader_process (void *thread_argument) {
-  // The value read
-  // The number of readers present when value is read
+  int id = *((int*)thread_argument);
+  int i = 0;
+  int num_readers = 0;
+
+  for (i = 0; i < N_READERS; i++) {
+    usleep(SLEEP_TIME); // Sleep 1 seconds
+
+    // Critical section. Wait if writers are working.
+    pthread_mutex_lock(&m);
+      g_waiting_readers++;
+      while (g_readers == -1) {
+        pthread_cond_wait(&cond_reader, &m);
+      }
+      g_waiting_readers--;
+      num_readers = ++g_readers;
+    pthread_mutex_unlock(&m);
+
+    // Read
+    fprintf(stdout, "[r%d] reading %u  [readers: %2d]\n", id, shared_x, num_readers);
+
+    // Send signal to writer if no readers are waiting
+    pthread_mutex_lock(&m);
+      g_readers--;
+      if (g_readers == 0) {
+        pthread_cond_signal(&cond_writer);
+      }
+    pthread_mutex_unlock(&m);
+  }
+
+  pthread_exit(0);
 }
 
 void *writer_process (void *thread_argument) {
-  // The written value
-  // The number of readers present were when value is written (should be 0)
+
+  int id = *((int*)thread_argument);
+  int i = 0;
+  int num_readers = 0;
+
+  for(i = 0; i < N_WRITERS; i++) {
+    usleep(SLEEP_TIME); // Sleep 1 seconds
+
+  // Critical section. Wait if readers are working.
+    pthread_mutex_lock(&m);
+      while (g_readers != 0) {
+        pthread_cond_wait(&cond_writer, &m);
+      }
+      g_readers = -1;
+      num_readers = g_readers;
+    pthread_mutex_unlock(&m);
+
+    // Write data
+    fprintf(stdout, "[w%d] writing %u* [readers: %2d]\n", id, ++shared_x, num_readers);
+
+    // Exit critical section. Broadcast or signal to cond_reader
+    pthread_mutex_lock(&m);
+      g_readers = 0;
+      if (g_waiting_readers > 0) {
+        pthread_cond_broadcast(&cond_reader);
+      }
+      else {
+        pthread_cond_signal(&cond_writer);
+      }
+    pthread_mutex_unlock(&m);
+  }
+
+  pthread_exit(0);
 }
