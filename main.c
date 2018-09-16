@@ -18,3 +18,29 @@ following constraints:
   - Note: This will help ensure that reads and writes do not occur all at once
 - Use pthreads, mutexes, and condition variables to synchronize access to the shared variable
 */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+#define N_READERS 5 /* size of shared buffer */
+#define N_WRITERS 5 /* size of shared buffer */
+
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t c_reader = PTHREAD_COND_INITIALIZER;
+pthread_cond_t c_writer = PTHREAD_COND_INITIALIZER;
+
+void *writer (void *param);
+void *reader (void *param);
+
+int main(int argc, char *argv[]) {
+
+}
+
+void *reader (void *param) {
+
+}
+
+void *writer (void *param) {
+
+}
