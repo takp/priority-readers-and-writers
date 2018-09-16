@@ -26,38 +26,58 @@ following constraints:
 #define N_READERS 5 /* size of shared buffer */
 #define N_WRITERS 5 /* size of shared buffer */
 
+unsigned int shared_x = 0; /* shared variable x */
+int waiting_readers = 0;
+
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t c_reader = PTHREAD_COND_INITIALIZER;
-pthread_cond_t c_writer = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_reader = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_writer = PTHREAD_COND_INITIALIZER;
 
 void *writer (void *param);
 void *reader (void *param);
 
 int main(int argc, char *argv[]) {
 
-  pthread_t tid1, tid2; /* thread identifiers */
   int i;
 
-  if (pthread_create(&tid1, NULL, writer, NULL) != 0) {
-    fprintf (stderr, "Unable to create writer thread.\n");
-    exit(1);
+  int reader_numbers[N_READERS];
+  int writer_numbers[N_WRITERS];
+
+  pthread_t reader_thread_ids[N_READERS]; /* thread identifiers */
+  pthread_t writer_thread_ids[N_WRITERS]; /* thread identifiers */
+
+  // Start the readers
+  for (i = 0; i < N_READERS; i++) {
+    reader_numbers[i] = i;
+    pthread_create(&reader_thread_ids[i], NULL, reader_process, &reader_numbers[i]);
   }
 
-  if (pthread_create(&tid2, NULL, reader, NULL) != 0) {
-    fprintf (stderr, "Unable to create reader thread.\n");
-    exit(1);
+  // Start the writers
+  for (i = 0; i < N_WRITERS; i++) {
+    writer_numbers[i] = i;
+    pthread_create(&writer_thread_ids[i], NULL, writer_process, &writer_numbers[i]);
   }
 
-  pthread_join(tid1, NULL); /* wait for writer to exit */
-  pthread_join(tid2, NULL); /* wait for reader to exit */
+  // Wait for the readers to finish
+  for (i = 0; i < N_READERS; i++) {
+    pthread_join(reader_thread_ids[i], NULL);
+  }
 
-  printf("Parent quiting.\n");
+  // Wait for the writers to finish
+  for (i = 0; i < N_WRITERS; i++) {
+    pthread_join(writer_thread_ids[i], NULL);    
+  }
+
+  printf("Successfully completed.\n");
+  return 0;
 }
 
-void *reader (void *param) {
-
+void *reader_process (void *thread_argument) {
+  // The value read
+  // The number of readers present when value is read
 }
 
-void *writer (void *param) {
-
+void *writer_process (void *thread_argument) {
+  // The written value
+  // The number of readers present were when value is written (should be 0)
 }
