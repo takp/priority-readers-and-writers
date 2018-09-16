@@ -35,6 +35,23 @@ void *reader (void *param);
 
 int main(int argc, char *argv[]) {
 
+  pthread_t tid1, tid2; /* thread identifiers */
+  int i;
+
+  if (pthread_create(&tid1, NULL, writer, NULL) != 0) {
+    fprintf (stderr, "Unable to create writer thread.\n");
+    exit(1);
+  }
+
+  if (pthread_create(&tid2, NULL, reader, NULL) != 0) {
+    fprintf (stderr, "Unable to create reader thread.\n");
+    exit(1);
+  }
+
+  pthread_join(tid1, NULL); /* wait for writer to exit */
+  pthread_join(tid2, NULL); /* wait for reader to exit */
+
+  printf("Parent quiting.\n");
 }
 
 void *reader (void *param) {
